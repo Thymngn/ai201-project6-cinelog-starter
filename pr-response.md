@@ -1,7 +1,12 @@
 # PR Response Doc — CineLog Watchlist Feature
 
 ## AI Usage
-<!-- Fill in at the end — how you used AI tools during this project -->
+Used Claude Code throughout this project as a reviewer/guide, not as the author of the core logic:
+- **Codebase orientation:** Had it explain what `add_to_watchlist()` did before each change, and locate all call sites of `save_to_watchlist()` before renaming, so I knew the blast radius before editing.
+- **Reviewing my own code, not writing it:** For Comment 2 (deduplication), I wrote the duplicate-check logic myself. AI caught two real bugs in my draft before I committed: (1) I had queried `CollectionEntry`/`AlreadyInCollectionError` instead of `WatchlistEntry`/a new watchlist-specific exception, which meant the check silently did nothing for actual watchlist duplicates; (2) a leftover copy-pasted error message that said "already in this user's collection" instead of "watchlist." I fixed both myself after it pointed them out.
+- **Stress-testing the design arguments (Comments 4 & 5):** For Comment 4 (default visibility), I asked for the strongest argument on both sides of `public=True` vs `public=False` before picking a position, so I wasn't just defending my first instinct. I wrote the final reasoning myself in my own words. For Comment 5 (sort order), I agreed with the reviewer's reasoning directly and used AI mainly to confirm the code change matched the existing `get_collection()` pattern.
+- **Rebase debugging:** During Comment 6's rebase, my first conflict resolution in `models.py` silently deleted the entire `WatchlistEntry` model instead of merging it in with the corrected UUID type. AI caught this by running the test suite and tracing the resulting `ImportError` back to the dropped model, which I then restored with the correct `String(36)` UUID foreign key.
+- **Commit hygiene:** Asked for the correct Conventional Commit prefix (`feat`/`fix`/`refactor`/`test`/`docs`) for each change based on `CONTRIBUTING.md`'s rules, and for help planning the final interactive rebase (which commits to reword vs. fixup) to get one logical change per commit.
 
 ## Comment 1 — Rename
 **What I did:** 
@@ -49,4 +54,24 @@ services/watchlist_service.py, in get_watchlist(): I swapped Film.title.asc() �
 **How I verified no conflict remains:** Ran `pytest tests/ -v` — all 5 tests pass, including the new `test_watchlist.py` test, confirming the model import and the full `add_to_watchlist`/`get_watchlist` flow work against the UUID schema. Also confirmed with `grep -n "Integer" models.py services/watchlist_service.py` that the only remaining `Integer` columns are `Film.year` and `CollectionEntry.rating`, which are correctly integers (not IDs).
 
 ## PR Description
-<!-- Written at the end — feature overview, design decisions, manual testing steps -->
+
+### What this feature does
+Adds a watchlist to CineLog so users can save films they want to watch later, separate from their collection of films already watched. It introduces a `WatchlistEntry` model, an `add_to_watchlist()` / `get_watchlist()` service layer, and two endpoints: `POST /watchlist/<user_id>/add` to save a film, and `GET /watchlist/<user_id>` to view it.
+
+### Design decisions
+- **Default visibility (`public=True`):** Watchlists default to public so friends and family can discover what a user wants to watch and share interest around it — this is what makes the feature social rather than a private, unused list. Users who prefer privacy can change this per-entry in settings. Tradeoff: some users may want their watchlist hidden by default (e.g. due to genre), and that group has to opt out rather than opt in.
+- **Sort order (date added, descending):** `get_watchlist()` returns films most-recently-added first, rather than alphabetically. A watchlist is inherently time-ordered — users care most about what they just queued up — and this also matches `get_collection()`'s existing `date_added` sort, keeping the two features consistent.
+
+### Manual testing
+1. Start the app: `python app.py`
+2. Create a user and a film (or use existing seed data), noting their UUIDs.
+3. Add a film to the watchlist:
+   ```
+   POST /watchlist/<user_id>/add
+   Body: { "film_id": "<film_uuid>" }
+   ```
+   Confirm a `201` response with the new entry.
+4. View the watchlist: `GET /watchlist/<user_id>` — confirm the film appears.
+5. Repeat step 3 with the same `film_id` — confirm it now returns an error instead of creating a duplicate.
+6. Add a second film, then `GET /watchlist/<user_id>` again — confirm the most recently added film appears first (date-added order, not alphabetical).
+7. Try `POST /watchlist/<user_id>/add` with a nonexistent `film_id` — confirm a `FilmNotFoundError`-driven error response, not a raw database error.
