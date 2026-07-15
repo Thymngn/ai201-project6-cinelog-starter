@@ -75,3 +75,7 @@ Adds a watchlist to CineLog so users can save films they want to watch later, se
 5. Repeat step 3 with the same `film_id` — confirm it now returns an error instead of creating a duplicate.
 6. Add a second film, then `GET /watchlist/<user_id>` again — confirm the most recently added film appears first (date-added order, not alphabetical).
 7. Try `POST /watchlist/<user_id>/add` with a nonexistent `film_id` — confirm a `FilmNotFoundError`-driven error response, not a raw database error.
+
+## Git Log Screenshot
+
+![Git log showing conventional commits](https://github.com/Thymngn/ai201-project6-cinelog-starter/blob/feature/watchlist/Screenshot%202026-07-15%20000037.png)
