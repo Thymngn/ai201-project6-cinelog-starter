@@ -10,22 +10,37 @@ save_to_watchlist() to add_to_watchlist() in services/watchlist_service.py
 I used the editor's find-all-reference.
 
 ## Comment 2 — Deduplication
-**What I did:** Added a lookup for an existing `WatchlistEntry` with the same `user_id`/`film_id` in `add_to_watchlist()` before creating a new entry, raising a new `AlreadyInWatchlistError` if one is found. Modeled on `add_to_collection()`'s `AlreadyInCollectionError` check in `collection_service.py`, but scoped to `WatchlistEntry` since the watchlist and collection are separate tables — a film can be in both without conflict.
-**How I verified:** Ran `pytest tests/ -v` after the change to confirm the existing suite still passed, then had the logic reviewed line-by-line to catch that an early draft mistakenly queried `CollectionEntry`/`AlreadyInCollectionError` instead of the watchlist's own table/exception.
+**What I did:**
+create AlreadyInWatchlistError(Exception) in watchlist_service. Add a check for existing film in watchlist following collection_service format.
+**How I verified:**
+Run pytest /tests -v and all the test passed
 
 ## Comment 3 — Missing test
-**What I did:** Created `tests/test_watchlist.py` with `test_add_to_watchlist_nonexistent_film_raises`, following `test_add_to_collection_nonexistent_film_raises` in `test_collection.py` — same `app`/`sample_user` fixtures, asserting `FilmNotFoundError` is raised for a fake UUID film_id.
-**How I verified:** Ran `pytest tests/test_watchlist.py -v` — passed.
+**What I did:**
+Created `tests/test_watchlist.py` with `t
+est_add_to_watchlist_nonexistent_film_raises`, following
+`test_add_to_collection_nonexistent_film_raises` in `test
+_collection.py` — same `app`/`sample_user` fixtures, asse
+rting `FilmNotFoundError` is raised for a fake UUID film_
+id.
+**How I verified:** 
+Ran `pytest tests/test_watchlist.py -
+v` — passed.
 
-## Comment 4 — Default visibility
-**My position:**
-**Reasoning:**
-**Tradeoff acknowledged:**
+**My position:** Keep `public=True` as the default.
+**Reasoning:** Primarily the discovery factor and sociality — default
+ing to public allows others to discover and share interest among frie
+nds and family. Making it public by default is what makes the app fee
+l social. Users who want privacy can change it in settings.
+**Tradeoff acknowledged:** The tradeoff is privacy — some users may w
+ant to hide their watchlist, for example because of the genre.
 
 ## Comment 5 — Sort order
-**My position:**
-**Reasoning:**
-**Engagement with reviewer's point:**
+**what i did**
+services/watchlist_service.py, in get_watchlist(): I swapped Film.title.asc() → WatchlistEntry.date_added.desc()
+**My position:** Switch to date-added order (descending — most recent first).
+**Reasoning:** A watchlist is inherently time-ordered — users add films as they discover them and want to see what they most recently queued up, not an alphabetical index. This also brings get_watchlist() in line with get_collection(), which already sorts by CollectionEntry.date_added.desc(), making the two similar features behave consistently.
+**Engagement with reviewer's point:** Agreed with the reviewer's reasoning outright — alphabetical sort was the wrong default for a "what do I want to watch" list, and there's no strong counter-argument for keeping it.
 
 ## Comment 6 — Rebase
 **What conflicted:**
