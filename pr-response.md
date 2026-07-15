@@ -27,6 +27,7 @@ id.
 Ran `pytest tests/test_watchlist.py -
 v` — passed.
 
+## Comment 4 — Default visibility
 **My position:** Keep `public=True` as the default.
 **Reasoning:** Primarily the discovery factor and sociality — default
 ing to public allows others to discover and share interest among frie
@@ -43,9 +44,9 @@ services/watchlist_service.py, in get_watchlist(): I swapped Film.title.asc() �
 **Engagement with reviewer's point:** Agreed with the reviewer's reasoning outright — alphabetical sort was the wrong default for a "what do I want to watch" list, and there's no strong counter-argument for keeping it.
 
 ## Comment 6 — Rebase
-**What conflicted:**
-**How I resolved it:**
-**How I verified no conflict remains:**
+**What conflicted:** Two things. First, `.gitignore` had an add/add conflict — both `main` (via the `chore: add .gitignore` commit) and my branch created the file independently with slightly different content; resolved by merging both lists together. Second, and more significantly, `models.py` had a conflict between `main`'s UUID refactor (`Film.id`/`CollectionEntry.film_id` changed from `Integer` to `String(36)`) and my branch's addition of the `WatchlistEntry` model (which still used `db.Integer` for `film_id`, since it was written pre-refactor). My first attempt at resolving this conflict accidentally dropped the `WatchlistEntry` class entirely instead of merging it in with the corrected type, which silently broke every import of `services/watchlist_service.py` (it imports `WatchlistEntry` from `models`).
+**How I resolved it:** Re-added the `WatchlistEntry` model to `models.py` with `film_id` as `db.Column(db.String(36), db.ForeignKey("film.id"), ...)` to match the UUID refactor, added a `watchlist_entries` relationship/backref on `Film` (matching the existing `collection_entries` pattern) so `entry.film` resolves correctly in `get_watchlist()`, and updated the stale `film_id (int)` docstring in `add_to_watchlist()` to `film_id (str): UUID of the film.`
+**How I verified no conflict remains:** Ran `pytest tests/ -v` — all 5 tests pass, including the new `test_watchlist.py` test, confirming the model import and the full `add_to_watchlist`/`get_watchlist` flow work against the UUID schema. Also confirmed with `grep -n "Integer" models.py services/watchlist_service.py` that the only remaining `Integer` columns are `Film.year` and `CollectionEntry.rating`, which are correctly integers (not IDs).
 
 ## PR Description
 <!-- Written at the end — feature overview, design decisions, manual testing steps -->
